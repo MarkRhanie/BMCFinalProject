@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-   Future<void> _login() async {
+  Future<void> _login() async {
     // 1. Check if the form is valid
     if (!_formKey.currentState!.validate()) {
       return; // If not valid, stop here
@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      
+
       // 4. If login is successful, the AuthWrapper's stream
       //    will auto-navigate to HomeScreen. We don't need to do it here.
 
@@ -58,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } else if (e.code == 'wrong-password') {
         message = 'Wrong password provided.';
       }
-      
+
       // 6. Show the error message in a SnackBar
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -111,7 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     border: OutlineInputBorder(), // 4. Nice border
                   ),
                   keyboardType:
-                      TextInputType.emailAddress, // 5. Show '@' on keyboard
+                  TextInputType.emailAddress, // 5. Show '@' on keyboard
                   // 6. Validator function
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -152,17 +152,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     minimumSize:
-                        const Size.fromHeight(50), // 3. Make it wide
+                    const Size.fromHeight(50), // 3. Make it wide
                   ),
-                  onPressed: _login, 
-                
-                // 2. Show a spinner OR text based on _isLoading
-                child: _isLoading 
-                    ? const CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ) 
-                    : const Text('Login'),
-              ),
+                  onPressed: _login,
+
+                  // 2. Show a spinner OR text based on _isLoading
+                  child: _isLoading
+                      ? const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  )
+                      : const Text('Login'),
+                ),
 
 
                 const SizedBox(height: 10),
