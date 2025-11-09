@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:ecommerce_app/screens/login_screen.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // 1. ADD THIS IMPORT
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -11,11 +12,11 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance; // 2. ADD THIS 
   bool _isLoading = false;
 
   @override
@@ -26,37 +27,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Future<void> _signUp() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // 3. This is the same: create the user
-      final UserCredential userCredential = 
-          await _auth.createUserWithEmailAndPassword(
+      final UserCredential userCredential =
+      await _auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // 4. --- THIS IS THE NEW PART ---
-      // After creating the user, save their info to Firestore
       if (userCredential.user != null) {
-        // 5. Create a document in a 'users' collection
-        //    We use the user's unique UID as the document ID
         await _firestore.collection('users').doc(userCredential.user!.uid).set({
           'email': _emailController.text.trim(),
-          'role': 'user', // 6. Set the default role to 'user'
-          'createdAt': FieldValue.serverTimestamp(), // For our records
+          'role': 'user',
+          'createdAt': FieldValue.serverTimestamp(),
         });
       }
-
-      // User is automatically signed in after successful signup
-      // Navigate back to AuthWrapper which will show HomeScreen
-      Navigator.of(context).pop();
     } on FirebaseAuthException catch (e) {
       String message;
       switch (e.code) {
@@ -80,14 +68,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
         const SnackBar(content: Text('An unexpected error occurred.')),
       );
     } finally {
-      if(mounted) {
+      if(mounted){
         setState(() {
           _isLoading = false;
         });
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {

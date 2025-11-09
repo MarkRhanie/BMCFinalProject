@@ -1,14 +1,22 @@
 import 'package:ecommerce_app/providers/cart_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ecommerce_app/screens/order_success_screen.dart';
 
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
 
   @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+
+  bool _isLoading = false;
+
+  @override
   Widget build(BuildContext context) {
-    // 1. Get the cart. This time, we *want* to listen (default)
-    //    so this screen rebuilds when we remove an item.
+
     final cart = Provider.of<CartProvider>(context);
 
     return Scaffold(
@@ -17,45 +25,37 @@ class CartScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // 2. The list of items
           Expanded(
-            // 3. If cart is empty, show a message
             child: cart.items.isEmpty
                 ? const Center(child: Text('Your cart is empty.'))
                 : ListView.builder(
-                    itemCount: cart.items.length,
-                    itemBuilder: (context, index) {
-                      final cartItem = cart.items[index];
-                      // 4. A ListTile to show item details
-                      return ListTile(
-                        leading: CircleAvatar(
-                          // Show a mini-image (or first letter)
-                          child: Text(cartItem.name[0]),
-                        ),
-                        title: Text(cartItem.name),
-                        subtitle: Text('Qty: ${cartItem.quantity}'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // 5. Total for this item
-                            Text(
-                              '₱${(cartItem.price * cartItem.quantity).toStringAsFixed(2)}'),
-                            // 6. Remove button
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () {
-                                // 7. Call the removeItem function
-                                cart.removeItem(cartItem.id);
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+              itemCount: cart.items.length,
+              itemBuilder: (context, index) {
+                final cartItem = cart.items[index];
+                return ListTile(
+                  leading: CircleAvatar(
+                    child: Text(cartItem.name[0]),
                   ),
+                  title: Text(cartItem.name),
+                  subtitle: Text('Qty: ${cartItem.quantity}'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                          '₱${(cartItem.price * cartItem.quantity).toStringAsFixed(2)}'),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.pink),
+                        onPressed: () {
+                          cart.removeItem(cartItem.id);
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-          
-          // 8. The Total Price Summary
+
           Card(
             margin: const EdgeInsets.all(16),
             child: Padding(
@@ -75,8 +75,52 @@ class CartScreen extends StatelessWidget {
               ),
             ),
           ),
-          // We'll add a "Checkout" button here in a future module
-          const SizedBox(height: 20),
+
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size.fromHeight(50), 
+              ),
+
+              onPressed: (_isLoading || cart.items.isEmpty) ? null : () async {
+
+                setState(() {
+                  _isLoading = true;
+                });
+
+                try {
+                  final cartProvider = Provider.of<CartProvider>(context, listen: false);
+
+                  await cartProvider.placeOrder();
+                  await cartProvider.clearCart();
+
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => OrderSuccessScreen()),
+                        (route) => false,
+                  );
+
+                } catch (e) {
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to place order: $e')),
+                  );
+                } finally {
+                  if (mounted) {
+                    setState(() {
+                      _isLoading = false;
+                    });
+                  }
+                }
+              },
+
+              child: _isLoading
+                  ? const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.pinkAccent),
+              )
+                  : const Text('Place Order'),
+            ),
+          ),
         ],
       ),
     );

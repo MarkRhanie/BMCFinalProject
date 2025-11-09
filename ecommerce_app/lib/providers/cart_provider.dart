@@ -1,31 +1,128 @@
-import 'package:flutter/foundation.dart'; // Gives us ChangeNotifier
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
-// 1. A simple class to hold the data for an item in the cart
-class CartItem {
-  final String id;       // The unique product ID
-  final String name;
-  final double price;
-  int quantity;        // Quantity can change, so it's not final
-
-  CartItem({
-    required this.id,
-    required this.name,
-    required this.price,
-    this.quantity = 1, // Default to 1 when added
-  });
-}
-
-// 1. The CartProvider class "mixes in" ChangeNotifier
 class CartProvider with ChangeNotifier {
-  
-  // 2. This is the private list of items.
-  //    No one outside this class can access it directly.
-  final List<CartItem> _items = [];
 
-  // 3. A public "getter" to let widgets *read* the list of items
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  String? _userId;
+  List<CartItem> _items = [];
+  StreamSubscription<User?>? _authSubscription;
+
+      CartProvider() {
+        print('CartProvider created');
+        initializeAuthListener();
+      }
+      void initializeAuthListener() {
+        print('CartProvider auth listener initialized');
+        _authSubscription = _auth.authStateChanges().listen((User? user) {
+      if (user == null) {
+        print('User Logged out, clearing cart');
+        _userId = null;
+        _items = [];
+      } else {
+        print('User Logged in: ${user.uid}, Fetching cart...');
+        _userId = user.uid;
+        _fetchCart();
+      }
+      notifyListeners();
+    });
+  }
+
+  Future<void> _fetchCart() async {
+    if (_userId == null) return;
+
+    try {
+      final doc = await _firestore.collection('userCarts').doc(_userId).get();
+
+      if (doc.exists && doc.data()!['cartItems'] != null) {
+        final List<dynamic> cartData = doc.data()!['cartItems'];
+
+        _items = cartData.map((item) => CartItem.fromJson(item)).toList();
+        print('Cart fetched successfully: ${_items.length} items');
+      } else {
+        _items = [];
+      }
+    } catch (e) {
+      print('Error fetching cart: $e');
+      _items = [];
+    }
+    notifyListeners();
+  }
+
+  Future<void> _saveCart() async {
+    if (_userId == null) return;
+
+    try {
+      final List<Map<String, dynamic>> cartData =
+          _items.map((item) => item.toJson()).toList();
+
+      await _firestore.collection('userCarts').doc(_userId).set({
+        'cartItems': cartData,
+      });
+      print('Cart saved to Firestore');
+    } catch (e) {
+      print('Error saving cart: $e');
+    }
+  }
+
+  void addItem(String id, String name, double price) {
+    var index = _items.indexWhere((item) => item.id == id);
+    if (index != -1) {
+      _items[index].quantity += 1;
+    } else {
+      _items.add(CartItem(id: id, name: name, price: price));
+    }
+    _saveCart();
+    notifyListeners();
+  }
+
+  void removeItem(String id) {
+    _items.removeWhere((item) => item.id == id);
+    _saveCart();
+    notifyListeners();
+  }
+  Future<void> placeOrder() async {
+    if (_userId == null || _items.isEmpty) {
+      throw Exception('Cart is empty or user is not logged in');
+    }
+
+    try {
+      final List<Map<String, dynamic>> cartData = _items.map((item) => item.toJson()).toList();
+      final double total = totalPrice;
+      final int count = itemCount;
+      await _firestore.collection('orders').add({
+        'userId': _userId,
+        'items': cartData,
+        'totalPrice': total,
+        'itemCount': count,
+        'status': 'Pending',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error placing order: $e');
+      throw e;
+    }
+  }
+
+  Future<void> clearCart() async {
+    _items = [];
+    if (_userId != null) {
+      try {
+        await _firestore.collection('userCarts').doc(_userId).set({
+          'cartItems': [],
+        });
+        print('Firestore cart cleared');
+      } catch (e) {
+        print('Error clearing Firestore cart: $e');
+      }
+    }
+    notifyListeners();
+  }
   List<CartItem> get items => _items;
 
-  // 4. A public "getter" to calculate the total number of items
   int get itemCount {
     int total = 0;
     for (var item in _items) {
@@ -34,35 +131,48 @@ class CartProvider with ChangeNotifier {
     return total;
   }
 
-  // 5. A public "getter" to calculate the total price
   double get totalPrice {
     double total = 0.0;
     for (var item in _items) {
-      total += (item.price * item.quantity);
+      total += item.price * item.quantity;
     }
     return total;
   }
 
-  // 6. The main logic: "Add Item to Cart"
-  void addItem(String id, String name, double price) {
-    // 7. Check if the item is already in the cart
-    var index = _items.indexWhere((item) => item.id == id);
-
-    if (index != -1) {
-      // 8. If YES: just increase the quantity
-      _items[index].quantity++;
-    } else {
-      // 9. If NO: add it to the list as a new item
-      _items.add(CartItem(id: id, name: name, price: price));
-    }
-
-    // 10. CRITICAL: This tells all "listening" widgets to rebuild!
-    notifyListeners();
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
+}
 
-  // 11. The "Remove Item from Cart" logic
-  void removeItem(String id) {
-    _items.removeWhere((item) => item.id == id);
-    notifyListeners(); // Tell widgets to rebuild
+class CartItem {
+  final String id;
+  final String name;
+  final double price;
+  int quantity;
+
+  CartItem({
+    required this.id,
+    required this.name,
+    required this.price,
+    this.quantity = 1,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'price': price,
+      'quantity': quantity,
+    };
+}
+  factory CartItem.fromJson(Map<String, dynamic> json) {
+    return CartItem(
+      id: json['id'],
+      name: json['name'],
+      price: json['price'],
+      quantity: json['quantity'],
+    );
   }
 }

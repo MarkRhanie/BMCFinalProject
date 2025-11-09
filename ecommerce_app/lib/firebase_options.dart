@@ -66,4 +66,5 @@ class DefaultFirebaseOptions {
     projectId: 'eco-friendly-products-store',
     storageBucket: 'eco-friendly-products-store.firebasestorage.app',
   );
+
 }

@@ -4,18 +4,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerce_app/screens/admin_panel_screen.dart';
 import 'package:ecommerce_app/widgets/product_card.dart';
 import 'package:ecommerce_app/screens/product_detail_screen.dart';
-import 'package:ecommerce_app/providers/cart_provider.dart';
-import 'package:ecommerce_app/screens/cart_screen.dart';
-import 'package:provider/provider.dart';
+import 'package:ecommerce_app/providers/cart_provider.dart'; 
+import 'package:ecommerce_app/screens/cart_screen.dart'; 
+import 'package:provider/provider.dart'; 
+import 'package:ecommerce_app/screens/order_history_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _userRole = 'user'; // FIX 1: Default to 'user'
+  String _userRole = 'admin';
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   @override
@@ -29,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(_currentUser!.uid) // FIX 2: Added ! for null safety
+          .doc(_currentUser!.uid)
           .get();
 
       if (doc.exists && doc.data() != null) {
@@ -54,10 +56,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _currentUser != null ? 'Welcome, ${_currentUser!.email}' : 'Home', // FIX 3: Added !
-        ),
+        title: Text(_currentUser != null ? 'Welcome, ${_currentUser!.email}' : 'Home'),
         actions: [
+
           Consumer<CartProvider>(
             builder: (context, cart, child) {
               return Badge(
@@ -77,7 +78,18 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
-          // ADMIN PANEL BUTTON - Only shows if user is admin
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            tooltip: 'My Orders',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const OrderHistoryScreen(),
+                ),
+              );
+            },
+          ),
+
           if (_userRole == 'admin')
             IconButton(
               icon: const Icon(Icons.admin_panel_settings),
@@ -90,7 +102,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
-
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',
@@ -99,59 +110,24 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
 
-      // FIX 4: ADD FLOATING ACTION BUTTON FOR ADMIN
-      floatingActionButton: _userRole == 'admin'
-          ? FloatingActionButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const AdminPanelScreen(),
-                  ),
-                );
-              },
-              child: const Icon(Icons.add),
-              tooltip: 'Add New Product',
-            )
-          : null,
-
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('products')
             .orderBy('createdAt', descending: true)
             .snapshots(),
-            
+
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          
+
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('No products found.'),
-                  // FIX 5: ADD BUTTON FOR ADMIN TO ADD PRODUCTS
-                  if (_userRole == 'admin') ...[
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.admin_panel_settings),
-                      label: const Text('Go to Admin Panel'),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const AdminPanelScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ],
-              ),
+            return const Center(
+              child: Text('No products found. Add some in the Admin Panel!'),
             );
           }
 
@@ -165,15 +141,17 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSpacing: 10,
               childAspectRatio: 3 / 4,
             ),
+
             itemCount: products.length,
             itemBuilder: (context, index) {
               final productDoc = products[index];
               final productData = productDoc.data() as Map<String, dynamic>;
-              
+
               return ProductCard(
                 productName: productData['name'],
                 price: productData['price'],
                 imageUrl: productData['imageUrl'],
+
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(

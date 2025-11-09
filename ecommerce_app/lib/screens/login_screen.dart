@@ -1,8 +1,7 @@
-import 'package:ecommerce_app/screens/signup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:ecommerce_app/screens/signup_screen.dart';
 
-// 1. Create a StatefulWidget
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -10,18 +9,12 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-// 2. This is the State class
 class _LoginScreenState extends State<LoginScreen> {
-  // 3. Create a GlobalKey for the Form
   final _formKey = GlobalKey<FormState>();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  bool _isLoading = false;
-
-  // 4. Create TextEditingControllers
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
 
-  // 5. Clean up controllers when the widget is removed
   @override
   void dispose() {
     _emailController.dispose();
@@ -30,89 +23,68 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    // 1. Check if the form is valid
-    if (!_formKey.currentState!.validate()) {
-      return; // If not valid, stop here
-    }
+    if (!_formKey.currentState!.validate()) return;
 
-    // 2. Set loading to true
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // 3. This is the Firebase command to sign in
-      await _auth.signInWithEmailAndPassword(
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-
-      // 4. If login is successful, the AuthWrapper's stream
-      //    will auto-navigate to HomeScreen. We don't need to do it here.
-
+      // User is automatically signed in after successful login
+      // AuthWrapper will handle navigation to HomeScreen
+      // No need to navigate manually as StreamBuilder will update
     } on FirebaseAuthException catch (e) {
-      // 5. This 'catch' block handles Firebase-specific errors
-      String message = 'An error occurred';
-      if (e.code == 'user-not-found') {
-        message = 'No user found for that email.';
-      } else if (e.code == 'wrong-password') {
-        message = 'Wrong password provided.';
+      String message;
+      switch (e.code) {
+        case 'user-not-found':
+          message = 'No user found for that email.';
+          break;
+        case 'wrong-password':
+          message = 'Wrong password provided for that user.';
+          break;
+        case 'invalid-email':
+          message = 'The email address is not valid.';
+          break;
+        case 'user-disabled':
+          message = 'This user has been disabled.';
+          break;
+        default:
+          message = 'An error occurred. Please try again.';
       }
-
-      // 6. Show the error message in a SnackBar
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(message)),
       );
     } catch (e) {
-      // 7. Catch any other general errors
-      print(e);
-    }
-
-    // 8. ALWAYS set loading to false at the end
-    if (mounted) { // Check if the widget is still on screen
-      setState(() {
-        _isLoading = false;
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('An unexpected error occurred.')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-    // 1. A Scaffold provides the basic screen structure
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Login'),
-      ),
-      // 2. SingleChildScrollView prevents the keyboard from
-      //    causing a "pixel overflow" error
+      appBar: AppBar(title: const Text('Login')),
       body: SingleChildScrollView(
         child: Padding(
-          // 3. Add padding around the form
           padding: const EdgeInsets.all(16.0),
-          // 4. The Form widget acts as a container for our fields
           child: Form(
-            key: _formKey, // 5. Assign our key to the Form
-            // 6. A Column arranges its children vertically
+            key: _formKey,
             child: Column(
-              // 7. Center the contents of the column
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
-
-                // 2. The Email Text Field
                 TextFormField(
-                  controller: _emailController, // 3. Link the controller
+                  controller: _emailController,
                   decoration: const InputDecoration(
                     labelText: 'Email',
-                    border: OutlineInputBorder(), // 4. Nice border
+                    border: OutlineInputBorder(),
                   ),
-                  keyboardType:
-                  TextInputType.emailAddress, // 5. Show '@' on keyboard
-                  // 6. Validator function
+                  keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
@@ -120,21 +92,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (!value.contains('@')) {
                       return 'Please enter a valid email';
                     }
-                    return null; // 'null' means the input is valid
+                    return null;
                   },
                 ),
-
                 const SizedBox(height: 16),
-
-                // 8. The Password Text Field
                 TextFormField(
-                  controller: _passwordController, // 9. Link the controller
-                  obscureText: true, // 10. This hides the password
+                  controller: _passwordController,
+                  obscureText: true,
                   decoration: const InputDecoration(
                     labelText: 'Password',
                     border: OutlineInputBorder(),
                   ),
-                  // 11. Validator function
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your password';
@@ -145,32 +113,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 20),
-
-                // 2. The Login Button
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    minimumSize:
-                    const Size.fromHeight(50), // 3. Make it wide
+                    minimumSize: const Size.fromHeight(50),
                   ),
-                  onPressed: _login,
-
-                  // 2. Show a spinner OR text based on _isLoading
+                  onPressed: _isLoading ? null : _login,
                   child: _isLoading
-                      ? const CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  )
+                      ? const CircularProgressIndicator()
                       : const Text('Login'),
                 ),
-
-
                 const SizedBox(height: 10),
-
-                // 7. The "Sign Up" toggle button
                 TextButton(
                   onPressed: () {
-                    // 8. Navigate to the Sign Up screen
                     Navigator.of(context).pushReplacement(
                       MaterialPageRoute(
                         builder: (context) => const SignUpScreen(),

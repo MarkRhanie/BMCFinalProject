@@ -1,33 +1,29 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:ecommerce_app/providers/cart_provider.dart'; 
 import 'package:ecommerce_app/screens/auth_wrapper.dart';
-import 'package:ecommerce_app/providers/cart_provider.dart'; // 1. ADD THIS
-import 'package:provider/provider.dart'; // 2. ADD THIS
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:provider/provider.dart'; 
+import 'firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 void main() async {
-  // 1. Preserve the splash screen
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
-
-  // 2. Initialize Firebase
+  
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 3. Run the app
+  await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+  
   runApp(
-    // 2. We wrap our app in the provider
-    ChangeNotifierProvider(
-      // 3. This "creates" one instance of our cart
-      create: (context) => CartProvider(),
-      // 4. The child is our normal app
+    ChangeNotifierProvider.value(
+      value: CartProvider(),
       child: const MyApp(),
     ),
   );
-
-  // 4. Remove the splash screen
   FlutterNativeSplash.remove();
 }
 
@@ -36,14 +32,12 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Root of the app
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Office Stationery Store',
+      title: 'Eco-Friendly Products Store',
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,
       ),
-      // Show the auth wrapper to handle authentication state
       home: const AuthWrapper(),
     );
   }
